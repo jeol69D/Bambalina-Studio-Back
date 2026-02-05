@@ -1,0 +1,97 @@
+{
+  "meta": {
+    "title": "Ensayo Emocional – Demostración Completa",
+    "language": "es",
+    "humans": ["ALEJANDRA"],
+    "avatars": [
+      {
+        "name": "ANA",
+        "voice": "Helena",
+        "gender": "f",
+        "model": "avatar_ana.glb"
+      }
+    ],
+    "lipsync": "approx",
+    "similarity_threshold": 70
+  },
+  "script": [
+    {
+      "speaker": "ANA",
+      "text": "Hola yiyi, estoy lista para nuestra prueba de actuación.",
+      "animation": "Idle",
+      "expression": "neutral"
+    },
+    {
+      "speaker": "ALEJANDRA",
+      "text": "Perfecto Ana, hoy quiero ver si puedes expresar varias emociones. ¿Preparada?",
+      "animation": "Talking_0",
+      "expression": "neutral"
+    },
+    {
+      "speaker": "ANA",
+      "text": "Claro que sí, ¡soy toda una profesional!",
+      "animation": "Talking_1",
+      "expression": "smile"
+    },
+    {
+      "speaker": "ALEJANDRA",
+      "text": "yo quiero que tu bailes",
+      "animation": "Talking_0",
+      "expression": "thinking"
+    },
+    {
+      "speaker": "ANA",
+      "text": "Pues mira esto… ¡a veces solo quiero bailar un poco!, soy muy buena bailarina",
+      "animation": "Rumba",
+      "expression": "happy"
+    },
+    {
+      "speaker": "ALEJANDRA",
+      "text": "Jajaja, excelente. Ahora, cambiemos totalmente. ¿Qué tal si te asustan de repente?",
+      "animation": "Talking_0",
+      "expression": "neutral"
+    },
+    {
+      "speaker": "ANA",
+      "text": "¡Ay no! ¡Eso sí que me da miedo!",
+      "animation": "Terrified",
+      "expression": "scared"
+    },
+    {
+      "speaker": "ALEJANDRA",
+      "text": "Muy bien, muy natural. Ahora una emoción triste.",
+      "animation": "Talking_0",
+      "expression": "neutral"
+    },
+    {
+      "speaker": "ANA",
+      "text": "A veces… cuando no me llaman a actuar, me pongo muy sentimental. si no me dan el papel protagonico",
+      "animation": "Crying",
+      "expression": "sad"
+    },
+    {
+      "speaker": "ALEJANDRA",
+      "text": "Impresionante. Ahora muéstrame enojo, pero no conmigo, ¿ok?",
+      "animation": "Talking_2",
+      "expression": "neutral"
+    },
+    {
+      "speaker": "ANA",
+      "text": "¡Pues claro que no contigo! Pero sí me molesta, cuando me cambian el guion a última hora.",
+      "animation": "Angry",
+      "expression": "angry"
+    },
+    {
+      "speaker": "ALEJANDRA",
+      "text": "Excelente interpretación. Para cerrar, háblame como si estuvieras recuperando la calma.",
+      "animation": "Talking_1",
+      "expression": "neutral"
+    },
+    {
+      "speaker": "ANA",
+      "text": "Claro… ya estoy tranquila. Gracias por practicar conmigo. Estoy lista para la siguiente escena.",
+      "animation": "Idle",
+      "expression": "smile"
+    }
+  ]
+}
