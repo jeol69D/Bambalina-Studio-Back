@@ -14,7 +14,7 @@ import librosa
 from bambalina_core.models.parser_scene import load_scene, SceneLine
 from bambalina_core.director import EnsayoDirector
 from bambalina_core.infra.stt_vosk import VoskSTT, STTConfig
-from bambalina_core.infra.tts_piper import PiperTTS
+from bambalina_core.infra.tts_coqui import CoquiTTS
 
 
 SCENE_PATH = Path("./data/escena_demo.json")
@@ -118,8 +118,8 @@ class SceneRuntime:
         )
 
         # 🔊 TTS
-        self.tts = PiperTTS()
-        print("🔊 PiperTTS operativo (CLI puro)")
+        self.tts = CoquiTTS()
+        print("🔊 CoquiTTS operativo (modelo neuronal)")
 
         # 🎤 STT
         self.stt = VoskSTT(model_path="./bambalina_core/models/vosk/es", config=STTConfig())

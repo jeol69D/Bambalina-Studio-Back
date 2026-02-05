@@ -1,12 +1,73 @@
 # bambalina_api/main.py
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 import asyncio
+import json
+from pathlib import Path
 from bambalina_api.runtime import SceneRuntime
 
 app = FastAPI()
-runtime = SceneRuntime()
 
+# Configurar CORS para permitir requests desde el frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+runtime = SceneRuntime()
 clients = set()
+
+SCENE_FILE = Path("./data/escena_demo.json")
+
+@app.post("/upload-scene")
+async def upload_scene(scene_data: dict):
+    """Endpoint para recibir y guardar archivos JSON de escena"""
+    try:
+        # Validar estructura básica del JSON
+        if 'meta' not in scene_data and 'script' not in scene_data:
+            raise HTTPException(
+                status_code=400, 
+                detail="JSON debe contener al menos 'meta' o 'script'"
+            )
+
+        # Leer archivo actual si existe
+        current_data = {}
+        if SCENE_FILE.exists():
+            with open(SCENE_FILE, 'r', encoding='utf-8') as f:
+                current_data = json.load(f)
+        
+        # Merge con nuevos datos
+        if 'meta' in scene_data:
+            current_data.setdefault('meta', {}).update(scene_data['meta'])
+        if 'script' in scene_data:
+            current_data['script'] = scene_data['script']
+        
+        # Guardar archivo
+        with open(SCENE_FILE, 'w', encoding='utf-8') as f:
+            json.dump(current_data, f, ensure_ascii=False, indent=2)
+        
+        print(f"Escena actualizada desde upload: {SCENE_FILE}")
+        
+        # Opcional: reiniciar runtime con nueva escena
+        try:
+            runtime.stop()
+            runtime.start()
+            print("🔄 Runtime reiniciado con nueva escena")
+        except Exception as e:
+            print(f"⚠️ Error reiniciando runtime: {e}")
+        
+        return {
+            "success": True, 
+            "message": "Guión actualizado exitosamente",
+            "file_path": str(SCENE_FILE)
+        }
+        
+    except Exception as e:
+        print(f"Error procesando upload: {e}")
+        raise HTTPException(status_code=500, detail=f"Error guardando archivo: {str(e)}")
 
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
