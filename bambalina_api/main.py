@@ -164,6 +164,15 @@ async def update_avatar(avatar_data: dict):
         
         print(f"Avatar actualizado: {name} -> {model}")
         
+        # Notificar a todos los clientes conectados sobre el cambio
+        await broadcast({
+            "type": "avatar_updated",
+            "avatar": {
+                "name": name,
+                "model": model
+            }
+        })
+        
         return {
             "success": True, 
             "message": "Configuración del avatar actualizada exitosamente",
@@ -176,3 +185,37 @@ async def update_avatar(avatar_data: dict):
     except Exception as e:
         print(f"Error actualizando avatar: {e}")
         raise HTTPException(status_code=500, detail=f"Error actualizando avatar: {str(e)}")
+
+@app.get("/avatar-config")
+async def get_avatar_config():
+    """Endpoint para obtener la configuración actual del avatar"""
+    try:
+        if not SCENE_FILE.exists():
+            return {
+                "success": False,
+                "message": "No se encontró archivo de escena"
+            }
+        
+        with open(SCENE_FILE, 'r', encoding='utf-8') as f:
+            scene_data = json.load(f)
+        
+        if 'meta' in scene_data and 'avatars' in scene_data['meta'] and scene_data['meta']['avatars']:
+            avatar = scene_data['meta']['avatars'][0]  
+            return {
+                "success": True,
+                "avatar": {
+                    "name": avatar.get("name", ""),
+                    "model": avatar.get("model", "avatar.glb"),
+                    "voice": avatar.get("voice", "Helena"),
+                    "gender": avatar.get("gender", "f")
+                }
+            }
+        else:
+            return {
+                "success": False,
+                "message": "No se encontró configuración de avatar"
+            }
+            
+    except Exception as e:
+        print(f"Error obteniendo configuración de avatar: {e}")
+        raise HTTPException(status_code=500, detail=f"Error obteniendo configuración: {str(e)}")
