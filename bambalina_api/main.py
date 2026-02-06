@@ -111,3 +111,68 @@ def safe_emit(payload: dict):
             print("⚠️ No hay loop activo para broadcast:", payload)
 
 runtime.on_event = safe_emit
+
+@app.post("/update-avatar")
+async def update_avatar(avatar_data: dict):
+    """Endpoint para actualizar la configuración del avatar"""
+    try:
+        # Validar que se envíen name y model
+        if 'name' not in avatar_data or 'model' not in avatar_data:
+            raise HTTPException(
+                status_code=400, 
+                detail="Se requieren los campos 'name' y 'model'"
+            )
+
+        name = avatar_data['name'].strip()
+        model = avatar_data['model'].strip()
+
+        if not name or not model:
+            raise HTTPException(
+                status_code=400, 
+                detail="Los campos 'name' y 'model' no pueden estar vacíos"
+            )
+
+        # Leer archivo actual
+        current_data = {}
+        if SCENE_FILE.exists():
+            with open(SCENE_FILE, 'r', encoding='utf-8') as f:
+                current_data = json.load(f)
+        
+        # Asegurar que existe la estructura meta.avatars
+        if 'meta' not in current_data:
+            current_data['meta'] = {}
+        if 'avatars' not in current_data['meta']:
+            current_data['meta']['avatars'] = []
+        
+        # Buscar el avatar existente o crear nuevo
+        if current_data['meta']['avatars']:
+            # Actualizar el primer avatar (o podrías buscar por algún criterio)
+            current_data['meta']['avatars'][0]['name'] = name
+            current_data['meta']['avatars'][0]['model'] = model
+        else:
+            # Crear nuevo avatar si no existe ninguno
+            current_data['meta']['avatars'].append({
+                "name": name,
+                "voice": "Helena",  # valor por defecto
+                "gender": "f",      # valor por defecto
+                "model": model
+            })
+
+        # Guardar archivo
+        with open(SCENE_FILE, 'w', encoding='utf-8') as f:
+            json.dump(current_data, f, ensure_ascii=False, indent=2)
+        
+        print(f"Avatar actualizado: {name} -> {model}")
+        
+        return {
+            "success": True, 
+            "message": "Configuración del avatar actualizada exitosamente",
+            "avatar": {
+                "name": name,
+                "model": model
+            }
+        }
+        
+    except Exception as e:
+        print(f"Error actualizando avatar: {e}")
+        raise HTTPException(status_code=500, detail=f"Error actualizando avatar: {str(e)}")

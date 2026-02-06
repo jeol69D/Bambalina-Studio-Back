@@ -2,15 +2,13 @@
   "meta": {
     "title": "Ensayo Emocional – Demostración Completa",
     "language": "es",
-    "humans": [
-      "ALEJANDRA"
-    ],
+    "humans": ["ALEJANDRA"],
     "avatars": [
       {
         "name": "ANA",
         "voice": "Helena",
         "gender": "f",
-        "model": "avatar.glb"
+        "model": "avatar_ana.glb"
       }
     ],
     "lipsync": "approx",
