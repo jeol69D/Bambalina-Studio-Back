@@ -5,6 +5,7 @@ import asyncio
 import json
 from pathlib import Path
 from bambalina_api.runtime import SceneRuntime
+from datetime import datetime
 
 app = FastAPI()
 
@@ -226,20 +227,20 @@ async def save_audio(
     name: str = Form(...),
     animation: str = Form(...),
     expression: str = Form(...),
-    duration: str = Form(...)
+    duration: str = Form(...),
+    scriptLineIndex: str = Form("") 
 ):
     """Endpoint para recibir audios grabados con metadata"""
     try:
-        # Log de los datos recibidos
         print(f"📝 Audio recibido:")
         print(f"   - Nombre: {name}")
         print(f"   - Animación: {animation}")
         print(f"   - Expresión: {expression}")
         print(f"   - Duración: {duration}")
+        print(f"   - Línea del guión: {scriptLineIndex or 'No asignada'}")
         print(f"   - Archivo: {audio.filename} ({audio.content_type})")
         
-        # Aquí puedes procesar los datos como necesites
-        # Por ejemplo, guardar el archivo de audio
+        # 1️⃣ Guardar archivo de audio
         audio_content = await audio.read()
         
         # Crear directorio de audios si no existe
@@ -248,37 +249,141 @@ async def save_audio(
         
         # Generar nombre único para el archivo
         import uuid
-        audio_filename = f"{uuid.uuid4().hex}_{name}.webm"
+        audio_id = uuid.uuid4().hex
+        audio_filename = f"{audio_id}_{name}.webm"
         audio_path = audio_dir / audio_filename
         
         # Guardar archivo
         with open(audio_path, "wb") as f:
             f.write(audio_content)
         
-        # Notificar a clientes conectados (opcional)
+        print(f"✅ Audio guardado en: {audio_path}")
+        
+        # 2️⃣ Actualizar JSON si se especificó una línea
+        json_updated = False
+        if scriptLineIndex and scriptLineIndex.strip():
+            try:
+                line_index = int(scriptLineIndex)
+                
+                # Leer el archivo JSON actual
+                if SCENE_FILE.exists():
+                    with open(SCENE_FILE, 'r', encoding='utf-8') as f:
+                        scene_data = json.load(f)
+                    
+                    # Verificar que existe el script y el índice es válido
+                    if "script" in scene_data and 0 <= line_index < len(scene_data["script"]):
+                        # Actualizar la línea específica
+                        old_animation = scene_data["script"][line_index].get("animation", "N/A")
+                        old_expression = scene_data["script"][line_index].get("expression", "N/A")
+                        
+                        scene_data["script"][line_index]["animation"] = animation
+                        scene_data["script"][line_index]["expression"] = expression
+                        
+                        # Guardar el archivo JSON actualizado
+                        with open(SCENE_FILE, 'w', encoding='utf-8') as f:
+                            json.dump(scene_data, f, ensure_ascii=False, indent=2)
+                        
+                        print(f"✅ JSON actualizado:")
+                        print(f"   - Línea {line_index}: '{scene_data['script'][line_index]['text'][:50]}...'")
+                        print(f"   - Animación: {old_animation} → {animation}")
+                        print(f"   - Expresión: {old_expression} → {expression}")
+                        
+                        json_updated = True
+                        
+                        # Notificar a clientes sobre actualización del guión
+                        await broadcast({
+                            "type": "script_updated",
+                            "data": {
+                                "lineIndex": line_index,
+                                "animation": animation,
+                                "expression": expression,
+                                "text": scene_data["script"][line_index]["text"]
+                            }
+                        })
+                        
+                    else:
+                        print(f"⚠️ Índice de línea inválido: {line_index} (script tiene {len(scene_data.get('script', []))} líneas)")
+                        
+                else:
+                    print(f"⚠️ Archivo JSON no encontrado: {SCENE_FILE}")
+                    
+            except ValueError:
+                print(f"⚠️ scriptLineIndex no es un número válido: {scriptLineIndex}")
+        
+        # 3️⃣ Guardar metadata del audio en archivo separado (opcional)
+        metadata_file = Path("./data/recorded_audios/metadata.json")
+        
+        # Leer metadata existente
+        existing_metadata = []
+        if metadata_file.exists():
+            with open(metadata_file, 'r', encoding='utf-8') as f:
+                existing_metadata = json.load(f)
+        
+        # Agregar nueva entrada
+        new_entry = {
+            "id": audio_id,
+            "name": name,
+            "animation": animation,
+            "expression": expression,
+            "duration": duration,
+            "scriptLineIndex": int(scriptLineIndex) if scriptLineIndex and scriptLineIndex.strip() else None,
+            "filename": audio_filename,
+            "file_path": str(audio_path),
+            "json_updated": json_updated,
+            "created_at": datetime.now().isoformat()
+        }
+        
+        existing_metadata.append(new_entry)
+        
+        # Guardar metadata actualizada
+        with open(metadata_file, 'w', encoding='utf-8') as f:
+            json.dump(existing_metadata, f, ensure_ascii=False, indent=2)
+        
+        # 4️⃣ Notificar a clientes conectados
         await broadcast({
             "type": "audio_saved",
-            "data": {
-                "name": name,
-                "animation": animation,
-                "expression": expression,
-                "duration": duration,
-                "file_path": str(audio_path)
-            }
+            "data": new_entry
         })
         
+        # 5️⃣ Respuesta final
         return {
             "success": True,
-            "message": "Audio guardado exitosamente",
-            "data": {
-                "name": name,
-                "animation": animation,
-                "expression": expression,
-                "duration": duration,
-                "file_path": str(audio_path)
-            }
+            "message": f"Audio guardado exitosamente{' y JSON actualizado' if json_updated else ''}",
+            "data": new_entry
         }
         
     except Exception as e:
         print(f"❌ Error guardando audio: {e}")
         raise HTTPException(status_code=500, detail=f"Error guardando audio: {str(e)}")
+
+@app.get("/script-lines")
+async def get_script_lines():
+    """Endpoint para obtener las líneas del script con índices"""
+    try:
+        if not SCENE_FILE.exists():
+            raise HTTPException(status_code=404, detail="Archivo de escena no encontrado")
+        
+        # Leer el archivo JSON de la escena
+        with open(SCENE_FILE, 'r', encoding='utf-8') as f:
+            scene_data = json.load(f)
+        
+        # Obtener el script y agregar índices
+        script_lines = []
+        for index, line in enumerate(scene_data.get("script", [])):
+            script_lines.append({
+                "index": index,
+                "speaker": line.get("speaker", ""),
+                "text": line.get("text", ""),
+                "animation": line.get("animation", "Idle"),
+                "expression": line.get("expression", "neutral")
+            })
+        
+        return {
+            "success": True,
+            "message": f"Se encontraron {len(script_lines)} líneas",
+            "lines": script_lines
+        }
+        
+    except Exception as e:
+        print(f"❌ Error obteniendo líneas del script: {e}")
+        raise HTTPException(status_code=500, detail=f"Error obteniendo líneas: {str(e)}")
