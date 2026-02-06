@@ -1,5 +1,5 @@
 # bambalina_api/main.py
-from fastapi import FastAPI, WebSocket, HTTPException
+from fastapi import FastAPI, WebSocket, HTTPException, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 import json
@@ -219,3 +219,66 @@ async def get_avatar_config():
     except Exception as e:
         print(f"Error obteniendo configuración de avatar: {e}")
         raise HTTPException(status_code=500, detail=f"Error obteniendo configuración: {str(e)}")
+
+@app.post("/save-audio")
+async def save_audio(
+    audio: UploadFile = File(...),
+    name: str = Form(...),
+    animation: str = Form(...),
+    expression: str = Form(...),
+    duration: str = Form(...)
+):
+    """Endpoint para recibir audios grabados con metadata"""
+    try:
+        # Log de los datos recibidos
+        print(f"📝 Audio recibido:")
+        print(f"   - Nombre: {name}")
+        print(f"   - Animación: {animation}")
+        print(f"   - Expresión: {expression}")
+        print(f"   - Duración: {duration}")
+        print(f"   - Archivo: {audio.filename} ({audio.content_type})")
+        
+        # Aquí puedes procesar los datos como necesites
+        # Por ejemplo, guardar el archivo de audio
+        audio_content = await audio.read()
+        
+        # Crear directorio de audios si no existe
+        audio_dir = Path("./data/recorded_audios")
+        audio_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Generar nombre único para el archivo
+        import uuid
+        audio_filename = f"{uuid.uuid4().hex}_{name}.webm"
+        audio_path = audio_dir / audio_filename
+        
+        # Guardar archivo
+        with open(audio_path, "wb") as f:
+            f.write(audio_content)
+        
+        # Notificar a clientes conectados (opcional)
+        await broadcast({
+            "type": "audio_saved",
+            "data": {
+                "name": name,
+                "animation": animation,
+                "expression": expression,
+                "duration": duration,
+                "file_path": str(audio_path)
+            }
+        })
+        
+        return {
+            "success": True,
+            "message": "Audio guardado exitosamente",
+            "data": {
+                "name": name,
+                "animation": animation,
+                "expression": expression,
+                "duration": duration,
+                "file_path": str(audio_path)
+            }
+        }
+        
+    except Exception as e:
+        print(f"❌ Error guardando audio: {e}")
+        raise HTTPException(status_code=500, detail=f"Error guardando audio: {str(e)}")
