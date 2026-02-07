@@ -250,7 +250,7 @@ async def save_audio(
         # Generar nombre único para el archivo
         import uuid
         audio_id = uuid.uuid4().hex
-        audio_filename = f"{audio_id}_{name}.webm"
+        audio_filename = f"linea{scriptLineIndex}_{audio_id}_{name}.webm"
         audio_path = audio_dir / audio_filename
         
         # Guardar archivo
