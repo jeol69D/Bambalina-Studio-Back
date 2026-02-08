@@ -10,6 +10,8 @@ import sounddevice as sd
 import soundfile as sf
 import numpy as np
 import librosa
+import glob
+import os
 
 from bambalina_core.models.parser_scene import load_scene, SceneLine
 from bambalina_core.director import EnsayoDirector
@@ -176,6 +178,13 @@ class SceneRuntime:
                 self._schedule(self._drive_virtuals_then_listen())
 
     # -------------------------------------------------------
+    def _find_audio_for_line(self, line_index: int) -> str | None:
+        """Busca el archivo de audio correspondiente al índice de línea"""
+        pattern = f"./data/recorded_audios/linea{line_index}_*.wav"
+        matches = glob.glob(pattern)
+        return matches[0] if matches else None
+
+    # -------------------------------------------------------
     async def _drive_virtuals_then_listen(self):
         if not self.director:
             return
@@ -203,36 +212,30 @@ class SceneRuntime:
 
         # Ejecutar todas las líneas virtuales seguidas
         while d.idx < len(d.script) and not d.is_human_turn():
-
             line: SceneLine = d.script[d.idx]
 
-            # ---- SINTETIZAR VOZ ----
-            async def synth(text: str):
-                def _task():
-                    return self.tts.speak_to_dict(text)
-                return await asyncio.to_thread(_task)
-
-            try:
-                print(f"🎙️ Sintetizando: {line.text[:80]}...")
-                info = await synth(line.text)
-                wav_path = info["audio_path"]
-                dur_real = info["duration"]
-            except Exception as e:
-                self._emit_status(f"TTS error: {e}")
+            # ---- BUSCAR AUDIO GRABADO ----
+            audio_path = self._find_audio_for_line(d.idx)
+            
+            if not audio_path or not os.path.exists(audio_path):
+                print(f"⚠️ Audio no encontrado para línea {d.idx}, saltando...")
                 d.idx += 1
                 continue
 
-            # ---- LIPSYNC ----
-            energy_data = energy_phonemes(wav_path)
-            phon = energy_data.get("phonemes", []) or approx_phonemes(line.text, dur_real)[0]
+            # ---- OBTENER DURACIÓN DEL AUDIO ----
+            try:
+                data, sr = sf.read(audio_path)
+                dur_real = len(data) / sr
+            except Exception as e:
+                print(f"❌ Error leyendo audio {audio_path}: {e}")
+                d.idx += 1
+                continue
+
+            # ---- LIPSYNC (simplificado) ----
+            phon = approx_phonemes(line.text, dur_real)[0]
 
             # ---- EMOCIÓN ----
-            mean_e = energy_data.get("mean_energy", 0.0)
-            expression = line.expression or (
-                "excited" if mean_e > 0.5 else
-                "happy" if mean_e > 0.3 else
-                "neutral"
-            )
+            expression = line.expression or "neutral"
 
             # ---- EVENTO START ----
             self._emit({
@@ -246,15 +249,16 @@ class SceneRuntime:
                 "phonemes": phon,
             })
 
-            # ---- REPRODUCCIÓN ----
-            async def play(path: str):
+            # ---- REPRODUCCIÓN DEL AUDIO GRABADO ----
+            async def play_recorded(path: str):
                 def _play():
                     data, sr = sf.read(path)
                     sd.play(data, sr)
                     sd.wait()
                 return await asyncio.to_thread(_play)
 
-            await play(wav_path)
+            print(f"🎵 Reproduciendo audio grabado: {audio_path}")
+            await play_recorded(audio_path)
 
             self._emit({"event": "line_end", "index": d.idx})
             d.idx += 1

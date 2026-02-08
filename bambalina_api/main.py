@@ -230,15 +230,23 @@ async def save_audio(
     duration: str = Form(...),
     scriptLineIndex: str = Form("") 
 ):
-    """Endpoint para recibir audios grabados con metadata"""
+    """Endpoint para recibir audios grabados con metadata en formato WAV"""
     try:
-        print(f"📝 Audio recibido:")
+        print(f"📝 Audio WAV recibido:")
         print(f"   - Nombre: {name}")
         print(f"   - Animación: {animation}")
         print(f"   - Expresión: {expression}")
         print(f"   - Duración: {duration}")
         print(f"   - Línea del guión: {scriptLineIndex or 'No asignada'}")
         print(f"   - Archivo: {audio.filename} ({audio.content_type})")
+        
+        # Validar que sea un archivo WAV
+        if not (audio.content_type in ["audio/wav", "audio/wave"] or 
+                audio.filename.lower().endswith('.wav')):
+            print(f"⚠️ Tipo de contenido recibido: {audio.content_type}")
+            print(f"⚠️ Nombre de archivo: {audio.filename}")
+            # No rechazar, solo advertir
+            print("⚠️ Advertencia: El archivo podría no ser WAV, pero se procesará")
         
         # 1️⃣ Guardar archivo de audio
         audio_content = await audio.read()
@@ -247,17 +255,17 @@ async def save_audio(
         audio_dir = Path("./data/recorded_audios")
         audio_dir.mkdir(parents=True, exist_ok=True)
         
-        # Generar nombre único para el archivo
+        # Generar nombre único para el archivo - FORMATO WAV
         import uuid
         audio_id = uuid.uuid4().hex
-        audio_filename = f"linea{scriptLineIndex}_{audio_id}_{name}.webm"
+        audio_filename = f"linea{scriptLineIndex}_{audio_id}_{name}.wav"
         audio_path = audio_dir / audio_filename
         
-        # Guardar archivo
+        # Guardar archivo WAV directamente
         with open(audio_path, "wb") as f:
             f.write(audio_content)
         
-        print(f"✅ Audio guardado en: {audio_path}")
+        print(f"✅ Audio WAV guardado en: {audio_path}")
         
         # 2️⃣ Actualizar JSON si se especificó una línea
         json_updated = False
@@ -310,51 +318,51 @@ async def save_audio(
             except ValueError:
                 print(f"⚠️ scriptLineIndex no es un número válido: {scriptLineIndex}")
         
-        # 3️⃣ Guardar metadata del audio en archivo separado (opcional)
-        metadata_file = Path("./data/recorded_audios/metadata.json")
-        
-        # Leer metadata existente
-        existing_metadata = []
-        if metadata_file.exists():
-            with open(metadata_file, 'r', encoding='utf-8') as f:
-                existing_metadata = json.load(f)
-        
-        # Agregar nueva entrada
+        # 3️⃣ Crear entrada de metadata
         new_entry = {
             "id": audio_id,
-            "name": name,
+            "filename": audio_filename,
+            "original_name": name,
             "animation": animation,
             "expression": expression,
             "duration": duration,
-            "scriptLineIndex": int(scriptLineIndex) if scriptLineIndex and scriptLineIndex.strip() else None,
-            "filename": audio_filename,
-            "file_path": str(audio_path),
-            "json_updated": json_updated,
-            "created_at": datetime.now().isoformat()
+            "script_line_index": scriptLineIndex if scriptLineIndex.strip() else None,
+            "timestamp": datetime.now().isoformat(),
+            "content_type": "audio/wav",
+            "file_path": str(audio_path)
         }
+        
+        # 4️⃣ Guardar metadata
+        metadata_file = Path("./data/recorded_audios/metadata.json")
+        existing_metadata = []
+        if metadata_file.exists():
+            try:
+                with open(metadata_file, 'r', encoding='utf-8') as f:
+                    existing_metadata = json.load(f)
+            except:
+                pass
         
         existing_metadata.append(new_entry)
         
-        # Guardar metadata actualizada
         with open(metadata_file, 'w', encoding='utf-8') as f:
             json.dump(existing_metadata, f, ensure_ascii=False, indent=2)
         
-        # 4️⃣ Notificar a clientes conectados
+        # 5️⃣ Notificar a clientes conectados
         await broadcast({
             "type": "audio_saved",
             "data": new_entry
         })
         
-        # 5️⃣ Respuesta final
+        # 6️⃣ Respuesta final
         return {
             "success": True,
-            "message": f"Audio guardado exitosamente{' y JSON actualizado' if json_updated else ''}",
+            "message": f"Audio WAV guardado exitosamente{' y JSON actualizado' if json_updated else ''}",
             "data": new_entry
         }
         
     except Exception as e:
-        print(f"❌ Error guardando audio: {e}")
-        raise HTTPException(status_code=500, detail=f"Error guardando audio: {str(e)}")
+        print(f"❌ Error guardando audio WAV: {e}")
+        raise HTTPException(status_code=500, detail=f"Error guardando audio WAV: {str(e)}")
 
 @app.get("/script-lines")
 async def get_script_lines():
