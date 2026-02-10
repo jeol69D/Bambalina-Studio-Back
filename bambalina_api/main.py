@@ -187,6 +187,50 @@ async def update_avatar(avatar_data: dict):
         print(f"Error actualizando avatar: {e}")
         raise HTTPException(status_code=500, detail=f"Error actualizando avatar: {str(e)}")
 
+@app.get("/script-info")
+async def get_script_info():
+    """Endpoint para obtener información del guión actual"""
+    try:
+        if not SCENE_FILE.exists():
+            return {
+                "success": False,
+                "message": "No se encontró archivo de guión",
+                "data": {
+                    "filename": "Ningún archivo cargado",
+                    "humans": [],
+                    "avatars": []
+                }
+            }
+        
+        with open(SCENE_FILE, 'r', encoding='utf-8') as f:
+            scene_data = json.load(f)
+        
+        # Extraer información del meta
+        meta = scene_data.get('meta', {})
+        
+        # Nombre del archivo (usar el title del meta o el nombre del archivo)
+        filename = meta.get('title', SCENE_FILE.name)
+        
+        # Lista de humanos
+        humans = meta.get('humans', [])
+        
+        # Lista de avatares (extraer solo los nombres para simplificar)
+        avatars_data = meta.get('avatars', [])
+        avatars = [avatar.get('name', 'Sin nombre') for avatar in avatars_data if isinstance(avatar, dict)]
+        
+        return {
+            "success": True,
+            "data": {
+                "filename": filename,
+                "humans": humans,
+                "avatars": avatars
+            }
+        }
+        
+    except Exception as e:
+        print(f"Error obteniendo información del guión: {e}")
+        raise HTTPException(status_code=500, detail=f"Error leyendo guión: {str(e)}")
+
 @app.get("/avatar-config")
 async def get_avatar_config():
     """Endpoint para obtener la configuración actual del avatar"""
